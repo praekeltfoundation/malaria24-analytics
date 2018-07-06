@@ -1,9 +1,6 @@
 library(shiny)
 
-ui <- fluidPage(
-  #titlePanel("Malaria Stats"),
-
-  navbarPage(tabPanel("Malaria Stats",
+ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
                          choices=c("ALL" = "all_p",
                                    "Western Cape" = "wc",
@@ -18,17 +15,8 @@ ui <- fluidPage(
                          )),
              tabPanel("Map Overview", plotOutput("map")),
              tabPanel("Graphing", plotOutput("timeSeriesGraph")),
-             tabPanel("Summary", tableOutput("summaryStats"))
-             )#,
-
-  # mainPanel(
-  #   tabsetPanel(
-  #     tabPanel("Map Overview", plotOutput("map"), tableOutput("summaryStats")),
-  #     tabPanel("Graphing", plotOutput("timeSeriesGraph")),
-  #     tabPanel("Summary", plotOutput("summaryStats"))
-  #     
-  #   ))
-  )
+             tabPanel("Summary", tableOutput("reported_cases"), tableOutput("abroad"))
+             )
 
 
 server <- function(input, output, session) {
@@ -38,7 +26,16 @@ server <- function(input, output, session) {
   credentials = read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE)
   
 
-  output$summaryStats = renderTable({
+    output$abroad = renderTable({
+      mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
+      abroad <- as.data.frame(table(mal_data[,"abroad"]))
+      names(abroad) <- c("Abroad Country", "Reported Cases")
+      abroad
+    })
+
+  
+
+  output$reported_cases = renderTable({
     
     mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
     df1 <- reported_case_counts(df=mal_data)
