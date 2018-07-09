@@ -1,6 +1,7 @@
 library(shiny)
 library(lubridate)
 
+min_date <- substr(get_data_fromDB(credentials=credentials, get_min_date)[1,"min"], 1, 10)
 
 ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
@@ -17,8 +18,8 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                          )),
              tabPanel("Map Overview", 
                       sliderInput("date", "Year:",
-                                  min = as.Date("2015-01-01", "%Y-%m-%d"),
-                                  max = as.Date("2018-12-31", "%Y-%m-%d"),
+                                  min = as.Date(min_date, "%Y-%m-%d"),
+                                  max = Sys.Date(),
                                   value = as.Date("2017-02-01"),
                                   timeFormat = "%Y-%m-%d"),
                     plotOutput("map")),
