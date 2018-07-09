@@ -1,4 +1,6 @@
 library(shiny)
+library(lubridate)
+
 
 ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
@@ -13,7 +15,13 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                                    "Northen Cape" = "nc",
                                    "North West" = "nw")
                          )),
-             tabPanel("Map Overview", plotOutput("map")),
+             tabPanel("Map Overview", 
+                      sliderInput("date", "Year:",
+                                  min = as.Date("2015-01-01", "%Y-%m-%d"),
+                                  max = as.Date("2018-12-31", "%Y-%m-%d"),
+                                  value = as.Date("2017-02-01"),
+                                  timeFormat = "%Y-%m-%d"),
+                    plotOutput("map")),
              tabPanel("Graphing", plotOutput("timeSeriesGraph")),
              tabPanel("Summary", tableOutput("reported_cases"), tableOutput("abroad"))
              )
@@ -39,6 +47,7 @@ server <- function(input, output, session) {
     
     mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
     df1 <- reported_case_counts(df=mal_data)
+    
     
     if(input$province=='all_p'){
       #get reported cases by province
@@ -66,10 +75,12 @@ server <- function(input, output, session) {
     df1 <- reported_case_counts(df=mal_data)
   
     if(input$province=='all_p'){
+      df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
       df<- na.omit(df1[, c("longitude", "latitude")]) 
       zoom <- 5
     } else {
       df1 <- df1[df1$province==input$province,]
+      df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
       df <- na.omit(df1[ c("longitude", "latitude")])
       zoom <- 6
     }
