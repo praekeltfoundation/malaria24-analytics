@@ -1,5 +1,10 @@
 library(shiny)
 library(lubridate)
+library(leaflet)
+require(ggmap)
+require(ggplot2)
+source("mydata.R")
+credentials = read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE)
 
 min_date <- substr(get_data_fromDB(credentials=credentials, get_min_date)[1,"min"], 1, 10)
 
@@ -14,35 +19,37 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                                    "limpopo" = "lp",
                                    "Mpumalanga" = "mp",
                                    "Northen Cape" = "nc",
-                                   "North West" = "nw")
+                                   "North West" =  "nw")
                          )),
-             tabPanel("Map Overview", 
-                      sliderInput("date", "Year:",
-                                  min = as.Date(min_date, "%Y-%m-%d"),
-                                  max = Sys.Date(),
-                                  value = as.Date("2017-02-01"),
-                                  timeFormat = "%Y-%m-%d"),
-                    plotOutput("map")),
+             tabPanel("Map Overview",
+                      sidebarLayout(
+                        #side panel with slider input to choose malaria case reported b4 specified date
+                        sidebarPanel(
+                          sliderInput("date", "Year:",
+                                      min = as.Date(min_date, "%Y-%m-%d"),
+                                      max = Sys.Date(),
+                                      value = as.Date("2017-02-01"),
+                                      timeFormat = "%Y-%m-%d")),
+
+                        #Shows map of where malaria cases are reported
+                        mainPanel(
+                          leafletOutput("map",width = 1000, height=800))
+                          )),
+            
              tabPanel("Graphing", plotOutput("timeSeriesGraph")),
              tabPanel("Summary", tableOutput("reported_cases"), tableOutput("abroad"))
              )
 
 
 server <- function(input, output, session) {
-  require(ggmap)
-  require(ggplot2)
-  source("mydata.R")
-  credentials = read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE)
   
-
+  
     output$abroad = renderTable({
       mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
       abroad <- as.data.frame(table(mal_data[,"abroad"]))
       names(abroad) <- c("Abroad Country", "Reported Cases")
       abroad
     })
-
-  
 
   output$reported_cases = renderTable({
     
@@ -69,13 +76,38 @@ server <- function(input, output, session) {
     }
   })
   
+  output$map = renderLeaflet({
+    
+    mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
+    df1 <- reported_case_counts(df=mal_data)
+    
+    if(input$province=="all_p"){
+      df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
+      df<- na.omit(df1[, c("longitude", "latitude")]) 
+      zoom <- 5
+    } else {
+      df1 <- df1[df1$province==input$province,]
+      df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
+      df <- na.omit(df1[ c("longitude", "latitude")])
+      zoom <- 6
+    }
+    
+    gps_of_provinces <- read.csv("gps_of_provinces.csv", header=TRUE)
+    row.names(gps_of_provinces)<-c("lon","lat")
+    
+    my_map <- leaflet(df) %>% 
+      addTiles() %>% 
+      addCircles(~longitude, ~latitude, weight = 3, radius=40)
+      #addCircleMarkers(lng=~longitude,lat=~latitude, weight=1, radius=2, fillOpacity = 0.8 )
+    my_map})
   
+ ' 
   output$map = renderPlot({
     
     mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
     df1 <- reported_case_counts(df=mal_data)
   
-    if(input$province=='all_p'){
+    if(input$province=="all_p"){
       df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
       df<- na.omit(df1[, c("longitude", "latitude")]) 
       zoom <- 5
@@ -92,18 +124,19 @@ server <- function(input, output, session) {
 
     if(nrow(df1[df1$province==input$province,])==0 & input$province!="all_p"){
       #no data in province
-      mymap <- get_map(location= c(lon=gps_of_provinces['lon',"all_p" ],lat=gps_of_provinces['lat', "all_p" ]),  
+      mymap <- get_map(location= c(lon=gps_of_provinces["lon","all_p" ],lat=gps_of_provinces["lat", "all_p" ]),  
                      maptype = "roadmap",zoom=zoom, scale=2)
       ggmap(mymap) 
       
       } else {
-        mymap <- get_map(location= c(lon=gps_of_provinces['lon',input$province ],lat=gps_of_provinces['lat',input$province ]),  
+        mymap <- get_map(location= c(lon=gps_of_provinces["lon",input$province ],lat=gps_of_provinces["lat",input$province ]),
                      maptype = "roadmap",zoom=zoom, scale=2)
-        ggmap(mymap) + 
+        ggmap(mymap) +
           geom_point(data= df, aes(x=longitude, y=latitude, fill="red", alpha = 0.8), size=1, shape=21) +
           guides(fill=FALSE, alpha=FALSE, size=FALSE)
+        
         }
-  }, width=1000,height=1000)
+  }, width=1000,height=1000)'
   
   output$timeSeriesGraph <- renderPlot({
     
