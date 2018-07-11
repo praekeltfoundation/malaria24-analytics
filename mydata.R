@@ -24,6 +24,7 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
 }
 
 get_min_date <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
+get_max_date <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
 
 get_malaria_Data <-"SELECT 
                     malaria.create_date_time, malaria.locality,malaria.abroad, malaria.gender, 
