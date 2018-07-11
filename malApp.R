@@ -4,9 +4,21 @@ library(leaflet)
 require(ggmap)
 require(ggplot2)
 source("mydata.R")
-credentials = read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE)
 
-min_date <- substr(get_data_fromDB(credentials=credentials, get_min_date)[1,"min"], 1, 10)
+
+#get the first date on which a malaria case was recorded
+min_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
+  get_data_fromDB(get_min_date)
+min_date<- substr(min_date[1,"min"], 1, 10)
+
+# get the last date on which a malaria case was recorded
+max_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
+  get_data_fromDB(get_max_date)
+max_date<- substr(max_date[1,"max"], 1, 10)
+
+#get some general malaria data 
+df1 <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>%
+  reported_case_counts()
 
 ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
@@ -28,7 +40,7 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                           sliderInput("date", "Year:",
                                       min = as.Date(min_date, "%Y-%m-%d"),
                                       max = Sys.Date(),
-                                      value = as.Date("2017-02-01"),
+                                      value = as.Date(max_date),
                                       timeFormat = "%Y-%m-%d")),
 
                         #Shows map of where malaria cases are reported
@@ -37,7 +49,8 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                           )),
             
              tabPanel("Graphing", plotOutput("timeSeriesGraph")),
-             tabPanel("Summary", tableOutput("reported_cases"), tableOutput("abroad"))
+             tabPanel("Summary", tableOutput("reported_cases"), 
+                      tableOutput("abroad"))
              )
 
 
@@ -47,20 +60,16 @@ server <- function(input, output, session) {
     output$abroad = renderTable({
       mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
       abroad <- as.data.frame(table(mal_data[,"abroad"]))
+      abroad <- abroad[order(abroad$Freq),]
       names(abroad) <- c("Abroad Country", "Reported Cases")
       abroad
     })
 
   output$reported_cases = renderTable({
-    
-    mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
-    df1 <- reported_case_counts(df=mal_data)
-    
-    
     if(input$province=='all_p'){
       #get reported cases by province
       freq_table <- as.data.frame(table(df1$province))
-      freq_table <- freq_table[order(freq_table$Freq),] #order by frequency
+      freq_table <- freq_table[order(freq_table$Freq),]
       names(freq_table) <- c("Province", "Reported Cases")
       freq_table
       
@@ -77,9 +86,6 @@ server <- function(input, output, session) {
   })
   
   output$map = renderLeaflet({
-    
-    mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
-    df1 <- reported_case_counts(df=mal_data)
     
     if(input$province=="all_p"){
       df1 <- df1[substr(df1$date_reported, 1, 10) <= input$date,] # select date
