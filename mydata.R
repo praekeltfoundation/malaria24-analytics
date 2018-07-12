@@ -117,6 +117,6 @@ get_seasons <- function(df1, date_column) {
       df1$month[i]<- month(df1[i, date_column],  label=TRUE)
     }
   }
-  return(c(df1$month, df1$season))
+  return(df1)
 }
 
