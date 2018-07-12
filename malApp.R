@@ -17,15 +17,11 @@ max_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
 max_date<- substr(max_date[1,"max"], 1, 10)
  
 #get some general malaria data 
-df1 <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>%
-  reported_case_counts()
-
-#add seasons and month according to date on which malaria cas was reported
 date_column <- "date_reported"
-month_season <- get_seasons(df1, date_column)
-df1$month <- month_season[1]
-df1$season <- month_season[2]
-
+df1 <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>%
+  reported_case_counts() %>% 
+  #add seasons and month according to date on which malaria cas was reported
+  get_seasons(date_column=date_column)
 
 ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
