@@ -94,5 +94,29 @@ reported_case_counts <- function(df=get_malaria_Data ){
   
 }
 
-######summary functions######################
+get_seasons <- function(df1, date_column) {
+  
+  #get number of records
+  rows <- length(df1[, date_column])
+  #initialise season column
+  df1$season <- 1:rows
+  df1$month <- 1:rows
+  #allocate seasons according to month name and also return month names
+  for (i in 1:rows) {
+    if((month(df1[i, date_column], label=TRUE)>="Dec") & (month(df1[i, date_column], label=TRUE)<="Feb")){
+      df1$season[i] <- "summer"
+      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
+    } else if((month(df1[i, date_column], label=TRUE)>="Mar") & (month(df1[i, date_column], label=TRUE)<="May")){
+      df1$season[i]  <- "autumn"
+      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
+    } else if((month(df1[i, date_column], label=TRUE)>="Jun") & (month(df1[i, date_column], label=TRUE)<="Aug")){
+      df1$season[i]  <- "winter"
+      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
+    } else {
+      df1$season[i]  <- "spring"
+      df1$month[i]<- month(df1[i, date_column],  label=TRUE)
+    }
+  }
+  return(c(df1$month, df1$season))
+}
 
