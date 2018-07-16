@@ -1,8 +1,8 @@
 library(shiny)
 library(lubridate)
 library(leaflet)
-require(ggmap)
-require(ggplot2)
+#require(ggmap)
+#require(ggplot2)
 source("mydata.R")
 
 
@@ -17,11 +17,23 @@ max_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
 max_date<- substr(max_date[1,"max"], 1, 10)
  
 #get some general malaria data 
-date_column <- "date_reported"
+'date_column <- "date_reported"
 df1 <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>%
   reported_case_counts() %>% 
-  #add seasons and month according to date on which malaria cas was reported
-  get_seasons(date_column=date_column)
+  #add seasons and month according to date on which malaria case was reported
+  get_seasons(date_column=date_column)'
+
+df1 <-  read.csv("df1.csv", header=TRUE)
+df1[,"X"] <- NULL
+df_months <- df1[,c("date_reported", "month")]
+df_months$month <- month(df_months$month, label=TRUE)
+df_months$date_reported <- year(df_months$date_reported)
+#seasonality <- df1[,c("date_reported", "season")]
+#table(df_months[df_months$date_reported=="2016","month"]) # gives counts which what i wwant for boxplot
+
+boxplot(Freq ~ Var1, data.frame(table(df_months[df_months$date_reported=="2016","month"])), 
+        title="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year"
+        )
 
 ui <- navbarPage(tabPanel("Malaria Stats",
                       selectInput("province", label = "Province:",
@@ -40,14 +52,20 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                       sidebarLayout(
                         #side panel with slider input to choose malaria case reported b4 specified date
                         sidebarPanel(
-                          sliderInput("date", "Year:",
+                          fluidRow(
+                          column(sliderInput("date", "Year:",
                                       min = as.Date(min_date, "%Y-%m-%d"),
                                       max = Sys.Date(),
                                       value = as.Date(max_date),
-                                      timeFormat = "%Y-%m-%d")),
+                                      timeFormat = "%Y-%m-%d"), width=12), column(width=12),column(width=12),
+                          column(tags$h1(tags$b(span(textOutput("yearmonth"), style="color:blue"))), width=5),
+                          
+                          column(plotOutput("monthlyCases"), width=12)
+                            )),
 
                         #Shows map of where malaria cases are reported
                         mainPanel(
+                          
                           leafletOutput("map",width = 1000, height=800))
                           )),
             
@@ -59,8 +77,16 @@ ui <- navbarPage(tabPanel("Malaria Stats",
 
 server <- function(input, output, session) {
   
+  output$monthlyCases = renderPlot({
+    boxplot(Freq ~ Var1, data.frame(table(df_months[df_months$date_reported==year(input$date),"month"])), 
+            main="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year")
+  })
   
-    output$abroad = renderTable({
+  output$yearmonth = renderText({
+    txt <- paste(year(input$date), month(input$date, label=TRUE))
+    })
+  
+  output$abroad = renderTable({
       mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
       abroad <- as.data.frame(table(mal_data[,"abroad"]))
       abroad <- abroad[order(abroad$Freq),]
@@ -105,6 +131,7 @@ server <- function(input, output, session) {
     row.names(gps_of_provinces)<-c("lon","lat")
     
     my_map <- leaflet(df) %>% 
+      setView(lng=24.8156578, lat=-28.6628035, zoom=6) %>%
       addTiles() %>% 
       addCircles(~longitude, ~latitude, weight = 3, radius=40)
     my_map})
