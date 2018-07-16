@@ -1,6 +1,4 @@
-#read in credentials
-credentials <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE)
-
+# File contains methoods and queries related to data extraction and processing 
 get_data_fromDB<-function(credentials=credentials, sqlquery){
   "Connects to intern database.  
   credentilas= json file with dbname,host,port, user,password"
@@ -23,6 +21,20 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
 
 }
 
+get_seasons <- function(df) {
+  'adds a seasons column to the data according to the south african seasons'
+  df1$season <- df1$month
+  
+  df1[df1$season=="Dec"| df1$season=="Jan"| df1$season== "Feb","season"] <- "summer"
+  df1[df1$season=="Mar"| df1$season=="Apr"| df1$season== "May","season"] <- "autumn"
+  df1[df1$season=="Jun"| df1$season=="Jul"| df1$season== "Aug","season"] <- "winter"
+  df1[df1$season=="Sep"| df1$season=="Oct"| df1$season== "Nov","season"] <- "spring"
+  
+  return(df1)
+}
+
+
+
 get_min_date <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
 get_max_date <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
 
@@ -32,7 +44,8 @@ get_malaria_Data <-"SELECT *,
                     FROM
                       (SELECT 
                        malaria.create_date_time AS date_reported,  malaria.locality,malaria.abroad, malaria.gender, 
-                       clinic.longitude, clinic.latitude, clinic.district, clinic.subdistrict, clinic.facility
+                       clinic.longitude, clinic.latitude, substring(clinic.district from 4) AS district, 
+                       substring(clinic.district from 1 for 2) AS province, clinic.subdistrict, clinic.facility
                        FROM malaria24.ona_reportedcase AS malaria
                        LEFT JOIN
                        clinic_schema.clinic_database_updated_20160929 AS clinic
@@ -75,51 +88,4 @@ get_time_Data <- "WITH weekly_count_table AS
                   FROM facility_averages
                   ORDER BY district, year"
 
-reported_case_counts <- function(df=get_malaria_Data ){
-  library(lubridate)
-  #detach province names from disrtrict, subdistrict and facilitydistrict
-  df$province <- substr(df$district, 1, 2)
-  df$district <- substr(df$district, 4, nchar(df$district))
-  df$subdistrict <- substr(df$subdistrict, 4, nchar(df$subdistrict))
-  df$facility <- substr(df$facility, 4, nchar(df$facility)) 
-  
-  #create 'date_reported'(local time zone) variable and remove 'create_date_time' variable 
-  #df$date_reported <- ymd_hms(df$create_date_time, tz="Africa/Johannesburg")
-  #df$create_date_time<-NULL 
-  
-  #select 2017 data
-  #df$case <- replicate(100,1)
-  #df2 <- subset(df, year(date_reported) == '2017')
-  #df2$date_reported <- floor_date(df2$date_reported, "day")
-  #need to aggregate daily cases or weekly case
-  
-  return(df)
-  
-}
-
-get_seasons <- function(df1, date_column) {
-  
-  #get number of records
-  rows <- length(df1[, date_column])
-  #initialise season column
-  df1$season <- 1:rows
-  df1$month <- 1:rows
-  #allocate seasons according to month name and also return month names
-  for (i in 1:rows) {
-    if((month(df1[i, date_column], label=TRUE)>="Sep") & (month(df1[i, date_column], label=TRUE)<="Nov")){
-      df1$season[i] <- "spring"
-      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
-    } else if((month(df1[i, date_column], label=TRUE)>="Mar") & (month(df1[i, date_column], label=TRUE)<="May")){
-      df1$season[i]  <- "autumn"
-      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
-    } else if((month(df1[i, date_column], label=TRUE)>="Jun") & (month(df1[i, date_column], label=TRUE)<="Aug")){
-      df1$season[i]  <- "winter"
-      df1$month[i] <- month(df1[i, date_column],  label=TRUE)
-    } else {
-      df1$season[i]  <- "summer"
-      df1$month[i]<- month(df1[i, date_column],  label=TRUE)
-    }
-  }
-  return(df1)
-}
 
