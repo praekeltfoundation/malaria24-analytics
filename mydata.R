@@ -1,4 +1,4 @@
-# File contains methoods and queries related to data extraction and processing 
+# File contains methods and queries related to data extraction and processing 
 get_data_fromDB<-function(credentials=credentials, sqlquery){
   "Connects to intern database.  
   credentilas= json file with dbname,host,port, user,password"
@@ -36,12 +36,11 @@ get_seasons <- function(df) {
 }
 
 
+get_min_date_sqlquery <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
+get_max_date_sqlquery <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
 
-get_min_date <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
-get_max_date <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
 
-
-get_malaria_Data <-"SELECT *, 
+get_malaria_Data_sqlquery <-"SELECT *, 
                     EXTRACT ('month' FROM date_reported) as month
                     FROM
                       (SELECT 
@@ -54,7 +53,7 @@ get_malaria_Data <-"SELECT *,
                        ON malaria.facility_code::text = clinic.facilitycode::text) AS malaria_reports
                                  "
 
-get_time_Data <- "WITH weekly_count_table AS 
+get_time_series_Data_sqlquery <- "WITH weekly_count_table AS 
                   (
                   SELECT 
                   to_char(malaria.create_date_time, 'YYYY') AS year, 

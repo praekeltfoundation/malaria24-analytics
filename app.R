@@ -6,12 +6,12 @@ source("mydata.R")
 
 #get the first date on which a malaria case was recorded
 min_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
-  get_data_fromDB(get_min_date)
+  get_data_fromDB(get_min_date_sqlquery)
 min_date<- substr(min_date[1,"min"], 1, 10)
 
 # get the last date on which a malaria case was recorded
 max_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
-  get_data_fromDB(get_max_date)
+  get_data_fromDB(get_max_date_sqlquery)
 max_date<- substr(max_date[1,"max"], 1, 10)
  
 #get malaria data from cache if it exists otherwise get from database and save to cache
@@ -19,7 +19,7 @@ if ("malaria_data.csv" %in% list.files()){
   malaria_data <-  read.csv("malaria_data.csv", header=TRUE)
   malaria_data[,"X"] <- NULL
 } else {
-  malaria_data <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>% 
+  malaria_data <- get_data_fromDB(credentials=credentials, get_malaria_Data_sqlquery) %>% 
     get_seasons()
 }
 
@@ -102,13 +102,11 @@ server <- function(input, output, session) {
     })
   
   output$abroad = renderTable({
-    
     #make table showing total number of reported case by different coutries patients travelled too
-      mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
-      abroad <- as.data.frame(table(mal_data[,"abroad"]))
-      abroad <- abroad[order(abroad$Freq),]
-      names(abroad) <- c("Abroad Country", "Reported Cases")
-      abroad
+    abroad <- as.data.frame(table(malaria_data [,"abroad"]))
+    abroad <- abroad[order(abroad$Freq),]
+    names(abroad) <- c("Abroad Country", "Reported Cases")
+    abroad
     })
 
   output$reported_cases = renderTable({
@@ -160,7 +158,7 @@ server <- function(input, output, session) {
  
   output$timeSeriesGraph <- renderPlot({
     
-    time_series <- get_data_fromDB(credentials=credentials, get_time_Data)
+    time_series <- get_data_fromDB(credentials=credentials, get_time_series_Data_sqlquery)
     time_series <- time_series[, c("year", "week_of_year", "district", "now_2", "now_1", "now_0")]
     time_series$province <- substr(time_series$district, 1,2) #first two charachters=province names
     time_series$district <- substr(time_series$district, 4, nchar(time_series$district))
