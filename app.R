@@ -1,6 +1,7 @@
 library(shiny)
 library(lubridate)
 library(leaflet)
+library(magrittr)
 source("mydata.R")
 
 
@@ -90,14 +91,47 @@ ui <- navbarPage(tabPanel("Malaria Stats",
 
 server <- function(input, output, session) {
   
+  #plot of total malaria cases for each month in a particular year
   output$monthlyCases = renderPlot({
+    monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
+    monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) #covert date column to just year fromat
+    '
+    monthly_malaria_counts <- monthly_malaria_counts[monthly_malaria_counts$date_reported==year(input$date), c("month")] %>%
+      table() %>%
+      data.frame()'
+    monthly_malaria_counts2015 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2015", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2015) <- c("month", "2015")
+    
+    monthly_malaria_counts2016 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2016", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2016) <- c("month", "2016")
+    
+    monthly_malaria_counts2017 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2017", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2017) <- c("month", "2017")
+    
+    counts <- merge(monthly_malaria_counts2015, monthly_malaria_counts2016, all=TRUE, by="month") %>%
+      merge(monthly_malaria_counts2017, all=TRUE, by="month")
+    counts[is.na(counts)] <- 0
+    counts <-counts[,c("2015","2016", "2017")] %>%
+      t() %>%
+      data.matrix()
+    colnames(counts) <- c("Jan","Feb","Mar","Apr","May", "Jun","Jul","Aug","Sep", "Oct", "Nov","Dec")
+      
+    barplot(counts, beside=T, legend=rownames(counts),
+            main="Reported Malaria Cases in South Africa",xlab="Month of Year", ylab="Reported Cases")
+    '
     #plot reported malaria cases by month
-    boxplot(Freq ~ Var1, data.frame(table(df_months[df_months$date_reported==year(input$date),"month"])), 
-            main="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year")
+    boxplot(count ~ month, data=monthly_malaria_counts,
+            main="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year")'
   })
   
+  #print to screen the year and moonth of selected date from slider
   output$yearmonth = renderText({
-    # print selected month and year
     month_of_year <- paste(year(input$date), month(input$date, label=TRUE))
     })
   
@@ -132,19 +166,26 @@ server <- function(input, output, session) {
   })
   
   output$map = renderLeaflet({
-    
-    #check which provices are selected and extract data accordingly
+   
+    #get subset of data according to provinc, return cumulative or monthly data accordingly
     if(input$province=="all_p"){
-      malaria_data <- malaria_data[substr(malaria_data$date_reported, 1, 10) <= input$date,] # select date
-      df<- na.omit(malaria_data[, c("longitude", "latitude")]) 
-      zoom <- 5
+        zoom <- 5
+        if(input$slider_data=="cum_total"){
+            malaria_data <- malaria_data[as.Date(malaria_data$date_reported) <= input$date,]
+        } else {
+            malaria_data <- malaria_data[format(as.Date(malaria_data$date_reported), "%Y-%m") == format(input$date, "%Y-%m"),]
+        }
     } else {
-      malaria_data <- malaria_data[malaria_data$province==input$province,]
-      malaria_data <- malaria_data[substr(malaria_data$date_reported, 1, 10) <= input$date,] # select date
-      df <- na.omit(malaria_data[ c("longitude", "latitude")])
-      zoom <- 6
+        malaria_data <- malaria_data[malaria_data$province==input$province,]
+        zoom <- 6
+        if(input$slider_data=="cum_total"){
+            malaria_data <- malaria_data[as.Date(malaria_data$date_reported) <= input$date,]
+        } else {
+            malaria_data <- malaria_data[format(as.Date(malaria_data$date_reported), "%Y-%m") == format(input$date, "%Y-%m"),]
+        }
     }
     
+    df <- na.omit(malaria_data[ c("longitude", "latitude")]) #remove data with missing coordinates
     gps_of_provinces <- read.csv("gps_of_provinces.csv", header=TRUE)
     row.names(gps_of_provinces)<-c("lon","lat")
     
