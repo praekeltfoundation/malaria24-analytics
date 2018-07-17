@@ -22,15 +22,17 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
 }
 
 get_seasons <- function(df) {
-  'adds a seasons column to the data according to the south african seasons'
-  df1$season <- df1$month
+  library(dplyr)
+  "adds a seasons column to the data according to the south african seasons
+  mutate evaluates evaluates expression in order semilar to if else"
   
-  df1[df1$season=="Dec"| df1$season=="Jan"| df1$season== "Feb","season"] <- "summer"
-  df1[df1$season=="Mar"| df1$season=="Apr"| df1$season== "May","season"] <- "autumn"
-  df1[df1$season=="Jun"| df1$season=="Jul"| df1$season== "Aug","season"] <- "winter"
-  df1[df1$season=="Sep"| df1$season=="Oct"| df1$season== "Nov","season"] <- "spring"
+  df %>%
+    mutate(season = case_when(month %in% c("Dec", "Jan", "Feb") ~ "summer",
+                              month %in% c("Mar", "Apr", "May") ~ "autumn",
+                              month %in% c("Jun", "Jul", "Aug") ~ "winter", 
+                              month %in% c("Sep", "Oct", "Nov") ~ "spring"))
   
-  return(df1)
+  return(df)
 }
 
 
