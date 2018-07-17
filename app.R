@@ -42,21 +42,45 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                         #side panel with slider input to choose malaria case reported b4 specified date
                         sidebarPanel(
                           fluidRow(
-                          column(sliderInput("date", "Year:",
-                                      min = as.Date(min_date, "%Y-%m-%d"),
-                                      max = Sys.Date(),
-                                      value = as.Date(max_date),
-                                      timeFormat = "%Y-%m-%d"), width=12), column(width=12),column(width=12),
-                          column(tags$h1(tags$b(span(textOutput("yearmonth"), style="color:blue"))), width=5),
-                          
-                          column(plotOutput("monthlyCases"), width=12)
+                            
+                            #gives user option to select which total  they want to see
+                            column(
+                              radioButtons("slider_data", "Data to show on map:",
+                                                c("Cumulative Total"="cum_total",
+                                                  "Monthly Total"="month_total")), width=12
+                              ),
+                            
+                            # give suser option to select the year of the data they want to see
+                            column(
+                              sliderInput("date", "Year:",
+                                          min = as.Date(min_date, "%Y-%m-%d"),
+                                          max = Sys.Date(),
+                                          value = as.Date(max_date),
+                                          timeFormat = "%Y-%m-%d"), width=12
+                              ),
+                            
+                            # shows the year and month selected by the user
+                            column(
+                              tags$h1(
+                                tags$b(
+                                  span(
+                                    textOutput("yearmonth"), 
+                                    style="color:blue")
+                                )), width=5
+                            ),
+                            
+                            #plots tmonthly otal number of reported cases for selected year
+                            column(
+                              plotOutput("monthlyCases"), width=12
+                              )
+                            
                             )),
 
                         #Shows map of where malaria cases are reported
                         mainPanel(
-                          
                           leafletOutput("map",width = 1000, height=800))
-                          )),
+                          )
+                        ),
             
              tabPanel("Graphing", plotOutput("timeSeriesGraph")),
              tabPanel("Summary", tableOutput("reported_cases"), 
