@@ -4,7 +4,7 @@ library(leaflet)
 library(magrittr)
 source("mydata.R")
 
-
+credentials <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) 
 #get the first date on which a malaria case was recorded
 min_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
   get_data_fromDB(get_min_date_sqlquery)
@@ -83,8 +83,11 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                           )
                         ),
             
-             tabPanel("Graphing", plotOutput("timeSeriesGraph")),
-             tabPanel("Summary", tableOutput("reported_cases"), 
+             tabPanel("Graphing",
+                      plotOutput("monthlyCases_by_year"),
+                      plotOutput("timeSeriesGraph")),
+             tabPanel("Summary", 
+                      tableOutput("reported_cases"), 
                       tableOutput("abroad"))
              )
 
@@ -95,10 +98,7 @@ server <- function(input, output, session) {
   output$monthlyCases = renderPlot({
     monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
     monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) #covert date column to just year fromat
-    '
-    monthly_malaria_counts <- monthly_malaria_counts[monthly_malaria_counts$date_reported==year(input$date), c("month")] %>%
-      table() %>%
-      data.frame()'
+
     monthly_malaria_counts2015 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2015", c("month")] %>%
       table() %>%
       data.frame()
@@ -124,11 +124,37 @@ server <- function(input, output, session) {
       
     barplot(counts, beside=T, legend=rownames(counts),
             main="Reported Malaria Cases in South Africa",xlab="Month of Year", ylab="Reported Cases")
-    '
-    #plot reported malaria cases by month
-    boxplot(count ~ month, data=monthly_malaria_counts,
-            main="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year")'
+   
   })
+  
+  output$monthlyCases_by_year <-renderPlot({
+    monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
+    monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) #covert date column to just year fromat
+  
+    monthly_malaria_counts2015 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2015", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2015) <- c("month", "count")
+    
+    monthly_malaria_counts2016 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2016", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2016) <- c("month", "count")
+    
+    monthly_malaria_counts2017 <- monthly_malaria_counts[monthly_malaria_counts$date_reported=="2017", c("month")] %>%
+      table() %>%
+      data.frame()
+    names(monthly_malaria_counts2017) <- c("month", "count")
+    #plot reported malaria cases by month
+    par(mfrow=c(2,2)) 
+    boxplot(count ~ month, data=monthly_malaria_counts2015,
+            main="Reported Malaria Cases in South Africa 2015", ylab="Reported Cases", xlab="Month of Year")
+    boxplot(count ~ month, data=monthly_malaria_counts2016,
+            main="Reported Malaria Cases in South Africa 2016", ylab="Reported Cases", xlab="Month of Year")
+    boxplot(count ~ month, data=monthly_malaria_counts2017,
+            main="Reported Malaria Cases in South Africa 2017", ylab="Reported Cases", xlab="Month of Year")
+  })
+  
   
   #print to screen the year and moonth of selected date from slider
   output$yearmonth = renderText({
