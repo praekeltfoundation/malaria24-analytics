@@ -34,10 +34,49 @@ get_seasons <- function(df) {
   
   return(df)
 }
+get_year_monthly_malaria_counts <- function(monthly_malaria_counts, report_year, col2="count"){
+  
+  report_year <- report_year %>% as.character()
+  monthly_malaria_counts2015 <- monthly_malaria_counts[monthly_malaria_counts$date_reported==report_year, c("month")] %>%
+    table() %>%
+    data.frame()
+  names(monthly_malaria_counts2015) <- c("month", col2)
+  
+  return(monthly_malaria_counts2015)
+}
 
 
-get_min_date_sqlquery <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
-get_max_date_sqlquery <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
+get_all_monlthly_malaria_counts <- function(malaria_data) {
+  
+  monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
+  monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) 
+  
+  # get monthly malaria counts for 2015
+  monthly_malaria_counts2015 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2015", col2="2015") 
+  
+  #get monthly malaria counts for 2016
+  monthly_malaria_counts2016 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2016", col2="2016") 
+  
+  #get monlthy malaria counts for 2017
+  monthly_malaria_counts2017 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2017", col2="2017") 
+  
+  # merge malaria counts for all the years into one data frame
+  counts <- merge(monthly_malaria_counts2015, monthly_malaria_counts2016, all=TRUE, by="month") %>%
+    merge(monthly_malaria_counts2017, all=TRUE, by="month")
+  counts[is.na(counts)] <- 0
+  
+  #transpose and convert the data into a matrix with years being row names and months as column names
+  counts <-counts[,c("2015","2016", "2017")] %>%
+    t() %>%
+    data.matrix()
+  colnames(counts) <- c("Jan","Feb","Mar","Apr","May", "Jun","Jul","Aug","Sep", "Oct", "Nov","Dec")
+  
+  return(counts)
+}
+
 
 
 get_malaria_Data_sqlquery <-"SELECT *, 
