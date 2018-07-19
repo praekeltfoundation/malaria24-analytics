@@ -1,26 +1,30 @@
 library(shiny)
 library(lubridate)
 library(leaflet)
+library(magrittr)
 source("mydata.R")
 
 
-#get the first date on which a malaria case was recorded
-min_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
-  get_data_fromDB(get_min_date)
-min_date<- substr(min_date[1,"min"], 1, 10)
-
-# get the last date on which a malaria case was recorded
-max_date <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) %>%
-  get_data_fromDB(get_max_date)
-max_date<- substr(max_date[1,"max"], 1, 10)
  
-#get malaria data from cache if it exists otherwise get from database and save to cache
+#get malaria data from local dir if it exists otherwise get from database and save to dir
 if ("malaria_data.csv" %in% list.files()){
   malaria_data <-  read.csv("malaria_data.csv", header=TRUE)
   malaria_data[,"X"] <- NULL
+  
+  malaria_data$date_reported<-as.Date(malaria_data$date_reported)
+  min_date <- substr(min(malaria_data$date_reported), 1, 10)
+  max_date <- substr(max(malaria_data$date_reported), 1, 10)
+  
 } else {
-  malaria_data <- get_data_fromDB(credentials=credentials, get_malaria_Data) %>% 
+  credentials <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) 
+  
+  malaria_data <- get_data_fromDB(credentials=credentials, get_malaria_Data_sqlquery) %>% 
     get_seasons()
+  
+  min_date <- substr(min(malaria_data$date_reported), 1, 10)
+  max_date <- substr(max(malaria_data$date_reported), 1, 10)
+  write.csv(malaria_data, file = "malaria_data.csv")
+
 }
 
 
@@ -82,33 +86,83 @@ ui <- navbarPage(tabPanel("Malaria Stats",
                           )
                         ),
             
-             tabPanel("Graphing", plotOutput("timeSeriesGraph")),
-             tabPanel("Summary", tableOutput("reported_cases"), 
+             tabPanel("Graphing",
+                      sidebarLayout(
+                        sidebarPanel(
+                          
+                          imageOutput("malaria_news")
+                        ),
+                        mainPanel(
+                          plotOutput("monthlyCases_by_year")
+                          #,plotOutput("timeSeriesGraph")
+                         ))
+                      ),
+             tabPanel("Summary", 
+                      tableOutput("reported_cases"), 
                       tableOutput("abroad"))
              )
 
 
 server <- function(input, output, session) {
+  output$malaria_news <- renderImage({
+    
+    list(src = "malaria_news.png",
+         contentType = 'image/png',
+         width = 400,
+         height = 400)
+  }, deleteFile = FALSE)
   
+  #plot of total malaria cases for each month in a particular year
   output$monthlyCases = renderPlot({
-    #plot reported malaria cases by month
-    boxplot(Freq ~ Var1, data.frame(table(df_months[df_months$date_reported==year(input$date),"month"])), 
-            main="Reported Malaria Cases in South Africa", ylab="Reported Cases", xlab="Month of Year")
+    
+    counts <- malaria_data %>%
+      get_all_monlthly_malaria_counts()
+
+    barplot(counts, beside=T, legend=rownames(counts),
+            main="Reported Malaria Cases in South Africa",xlab="Month of Year", ylab="Reported Cases")
+   
   })
   
+  output$monthlyCases_by_year <-renderPlot({
+    monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
+    monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) 
+    month_names <- c("Jan","Feb","Mar","Apr","May", "Jun","Jul","Aug","Sep", "Oct", "Nov","Dec")
+    month_names <-factor(month_names, levels=month_names)
+  
+    monthly_malaria_counts2015 <- monthly_malaria_counts %>%
+      get_year_monthly_malaria_counts(report_year="2015", col2="count")
+    monthly_malaria_counts2015$month <- month_names[as.numeric(levels(droplevels(monthly_malaria_counts2015$month)))]
+    
+    monthly_malaria_counts2016 <- monthly_malaria_counts %>%
+      get_year_monthly_malaria_counts(report_year="2016", col2="count")
+    monthly_malaria_counts2016$month <- month_names[as.numeric(levels(droplevels(monthly_malaria_counts2016$month)))]
+    
+    monthly_malaria_counts2017 <- monthly_malaria_counts %>%
+      get_year_monthly_malaria_counts(report_year="2017", col2="count")
+    monthly_malaria_counts2017$month <- month_names[as.numeric(levels(droplevels(monthly_malaria_counts2017$month)))]
+    
+    #plot reported malaria cases by month
+    par(mfrow=c(2,2)) 
+    boxplot(count ~ month, data=monthly_malaria_counts2015,
+            main="Reported Malaria Cases in South Africa 2015", ylab="Reported Cases", xlab="Month of Year")
+    boxplot(count ~ month, data=monthly_malaria_counts2016, 
+            main="Reported Malaria Cases in South Africa 2016", ylab="Reported Cases", xlab="Month of Year")
+    boxplot(count ~ month, data=monthly_malaria_counts2017, 
+            main="Reported Malaria Cases in South Africa 2017", ylab="Reported Cases", xlab="Month of Year")
+  })
+  
+  
+  #print to screen the year and moonth of selected date from slider
   output$yearmonth = renderText({
-    # print selected month and year
     month_of_year <- paste(year(input$date), month(input$date, label=TRUE))
     })
   
   output$abroad = renderTable({
-    
     #make table showing total number of reported case by different coutries patients travelled too
-      mal_data <- get_data_fromDB(credentials=credentials, get_malaria_Data)
-      abroad <- as.data.frame(table(mal_data[,"abroad"]))
-      abroad <- abroad[order(abroad$Freq),]
-      names(abroad) <- c("Abroad Country", "Reported Cases")
-      abroad
+    abroad <- as.data.frame(table(malaria_data [,"abroad"]))
+    abroad <- abroad[order(abroad$Freq),]
+    names(abroad) <- c("Abroad Country", "Reported Cases")
+    abroad
     })
 
   output$reported_cases = renderTable({
@@ -134,19 +188,26 @@ server <- function(input, output, session) {
   })
   
   output$map = renderLeaflet({
-    
-    #check which provices are selected and extract data accordingly
+   
+    #get subset of data according to provinc, return cumulative or monthly data accordingly
     if(input$province=="all_p"){
-      malaria_data <- malaria_data[substr(malaria_data$date_reported, 1, 10) <= input$date,] # select date
-      df<- na.omit(malaria_data[, c("longitude", "latitude")]) 
-      zoom <- 5
+        zoom <- 5
+        if(input$slider_data=="cum_total"){
+            malaria_data <- malaria_data[as.Date(malaria_data$date_reported) <= input$date,]
+        } else {
+            malaria_data <- malaria_data[format(as.Date(malaria_data$date_reported), "%Y-%m") == format(input$date, "%Y-%m"),]
+        }
     } else {
-      malaria_data <- malaria_data[malaria_data$province==input$province,]
-      malaria_data <- malaria_data[substr(malaria_data$date_reported, 1, 10) <= input$date,] # select date
-      df <- na.omit(malaria_data[ c("longitude", "latitude")])
-      zoom <- 6
+        malaria_data <- malaria_data[malaria_data$province==input$province,]
+        zoom <- 6
+        if(input$slider_data=="cum_total"){
+            malaria_data <- malaria_data[as.Date(malaria_data$date_reported) <= input$date,]
+        } else {
+            malaria_data <- malaria_data[format(as.Date(malaria_data$date_reported), "%Y-%m") == format(input$date, "%Y-%m"),]
+        }
     }
     
+    df <- na.omit(malaria_data[ c("longitude", "latitude")]) #remove data with missing coordinates
     gps_of_provinces <- read.csv("gps_of_provinces.csv", header=TRUE)
     row.names(gps_of_provinces)<-c("lon","lat")
     
@@ -160,7 +221,7 @@ server <- function(input, output, session) {
  
   output$timeSeriesGraph <- renderPlot({
     
-    time_series <- get_data_fromDB(credentials=credentials, get_time_Data)
+    time_series <- get_data_fromDB(credentials=credentials, get_time_series_Data_sqlquery)
     time_series <- time_series[, c("year", "week_of_year", "district", "now_2", "now_1", "now_0")]
     time_series$province <- substr(time_series$district, 1,2) #first two charachters=province names
     time_series$district <- substr(time_series$district, 4, nchar(time_series$district))

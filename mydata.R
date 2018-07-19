@@ -1,4 +1,4 @@
-# File contains methoods and queries related to data extraction and processing 
+# File contains methods and queries related to data extraction and processing 
 get_data_fromDB<-function(credentials=credentials, sqlquery){
   "Connects to intern database.  
   credentilas= json file with dbname,host,port, user,password"
@@ -22,24 +22,64 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
 }
 
 get_seasons <- function(df) {
-  'adds a seasons column to the data according to the south african seasons'
-  df1$season <- df1$month
+  library(dplyr)
+  "adds a seasons column to the data according to the south african seasons
+  mutate evaluates evaluates expression in order semilar to if else"
   
-  df1[df1$season=="Dec"| df1$season=="Jan"| df1$season== "Feb","season"] <- "summer"
-  df1[df1$season=="Mar"| df1$season=="Apr"| df1$season== "May","season"] <- "autumn"
-  df1[df1$season=="Jun"| df1$season=="Jul"| df1$season== "Aug","season"] <- "winter"
-  df1[df1$season=="Sep"| df1$season=="Oct"| df1$season== "Nov","season"] <- "spring"
+  df %>%
+    mutate(season = case_when(month %in% c("Dec", "Jan", "Feb") ~ "summer",
+                              month %in% c("Mar", "Apr", "May") ~ "autumn",
+                              month %in% c("Jun", "Jul", "Aug") ~ "winter", 
+                              month %in% c("Sep", "Oct", "Nov") ~ "spring"))
   
-  return(df1)
+  return(df)
+}
+get_year_monthly_malaria_counts <- function(monthly_malaria_counts, report_year, col2="count"){
+  
+  report_year <- report_year %>% as.character()
+  monthly_malaria_counts2015 <- monthly_malaria_counts[monthly_malaria_counts$date_reported==report_year, c("month")] %>%
+    table() %>%
+    data.frame()
+  names(monthly_malaria_counts2015) <- c("month", col2)
+  
+  return(monthly_malaria_counts2015)
+}
+
+
+get_all_monlthly_malaria_counts <- function(malaria_data) {
+  
+  monthly_malaria_counts <- malaria_data[,c("date_reported", "month")]
+  monthly_malaria_counts$date_reported <- year(monthly_malaria_counts$date_reported) 
+  
+  # get monthly malaria counts for 2015
+  monthly_malaria_counts2015 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2015", col2="2015") 
+  
+  #get monthly malaria counts for 2016
+  monthly_malaria_counts2016 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2016", col2="2016") 
+  
+  #get monlthy malaria counts for 2017
+  monthly_malaria_counts2017 <- monthly_malaria_counts %>%
+    get_year_monthly_malaria_counts(report_year="2017", col2="2017") 
+  
+  # merge malaria counts for all the years into one data frame
+  counts <- merge(monthly_malaria_counts2015, monthly_malaria_counts2016, all=TRUE, by="month") %>%
+    merge(monthly_malaria_counts2017, all=TRUE, by="month")
+  counts[is.na(counts)] <- 0
+  
+  #transpose and convert the data into a matrix with years being row names and months as column names
+  counts <-counts[,c("2015","2016", "2017")] %>%
+    t() %>%
+    data.matrix()
+  colnames(counts) <- c("Jan","Feb","Mar","Apr","May", "Jun","Jul","Aug","Sep", "Oct", "Nov","Dec")
+  
+  return(counts)
 }
 
 
 
-get_min_date <- "SELECT min(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
-get_max_date <- "SELECT max(malaria.create_date_time) FROM malaria24.ona_reportedcase AS malaria"
-
-
-get_malaria_Data <-"SELECT *, 
+get_malaria_Data_sqlquery <-"SELECT *, 
                     EXTRACT ('month' FROM date_reported) as month
                     FROM
                       (SELECT 
@@ -52,7 +92,7 @@ get_malaria_Data <-"SELECT *,
                        ON malaria.facility_code::text = clinic.facilitycode::text) AS malaria_reports
                                  "
 
-get_time_Data <- "WITH weekly_count_table AS 
+get_time_series_Data_sqlquery <- "WITH weekly_count_table AS 
                   (
                   SELECT 
                   to_char(malaria.create_date_time, 'YYYY') AS year, 
