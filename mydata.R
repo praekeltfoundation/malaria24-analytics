@@ -1,5 +1,5 @@
 # File contains methods and queries related to data extraction and processing 
-get_data_fromDB<-function(credentials=credentials, sqlquery){
+get_data_fromDB<-function(json_data, sqlquery){
   "Connects to intern database.  
   credentilas= json file with dbname,host,port, user,password"
   
@@ -8,10 +8,9 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
   
   #connect to the intern malaria database
   drv <- dbDriver("PostgreSQL")
-  con <- dbConnect(drv, dbname = as.character(credentials$dbname),
-                   host = as.character(credentials$host), port = credentials$port,
-                   user = as.character(credentials$user), password = as.character(credentials$password)
-  )
+  con <- dbConnect(drv, dbname =json_data$dbname,
+                   host = json_data$host, port = json_data$port,
+                   user = json_data$user, password = json_data$password)
   rm(credentials)
   #get data set and close connection
   data <- dbGetQuery(con, sqlquery)
@@ -20,6 +19,7 @@ get_data_fromDB<-function(credentials=credentials, sqlquery){
   return(data)
 
 }
+
 
 get_seasons <- function(df) {
   library(dplyr)
