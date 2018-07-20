@@ -2,6 +2,7 @@ library(shiny)
 library(lubridate)
 library(leaflet)
 library(magrittr)
+library(rjson)
 source("mydata.R")
 
 
@@ -16,9 +17,9 @@ if ("malaria_data.csv" %in% list.files()){
   max_date <- substr(max(malaria_data$date_reported), 1, 10)
   
 } else {
-  credentials <- read.csv("/home/mkhuphuli/hello/credentials.csv", header=TRUE) 
+  json_file <- fromJSON(file=file.path(Sys.getenv("HOME"), "credentials.json"))
   
-  malaria_data <- get_data_fromDB(credentials=credentials, get_malaria_Data_sqlquery) %>% 
+  malaria_data <- get_data_fromDB(json_data=json_file, get_malaria_Data_sqlquery) %>% 
     get_seasons()
   
   min_date <- substr(min(malaria_data$date_reported), 1, 10)
